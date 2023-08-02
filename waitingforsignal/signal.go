@@ -2,7 +2,9 @@
 *
 * lets suppose we have a queue of fixed length, say 2.
 and we have more than 2 items to push onto the queue.
-we want to push items as soon as there is space, that is, as soon as count is less than two
+we want to push items as soon as there is space, that is, 
+as soon as count is less than two
+reasons could be, downstream consumer cannot keep up with upstream supplier
 */
 package waitingforsignal
 

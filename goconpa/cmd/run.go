@@ -15,8 +15,9 @@ var runCmd = &cobra.Command{
 	Use:   "run",
 	Short: "runs examples of go concurrency patterns",
 	Long: `runs examples of go concurrency patterns`,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		fmt.Println("please call sub commands!!!")
+		return fmt.Errorf("incomplete command")
 	},
 }
 
