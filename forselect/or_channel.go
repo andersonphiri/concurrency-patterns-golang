@@ -26,7 +26,7 @@ func RunOrChannel() {
 			switch len(channels) {
 			case 2:
 				select {
-				case <- channels[0]:
+				case <- channels[0]: 
 				case <- channels[1]:
 				}
 			default:
@@ -35,12 +35,9 @@ func RunOrChannel() {
 					case <- channels[1]:
 					case <- channels[2]:
 					case <- or(append(channels[3:], orDone)...):
-
 				}
 			}
-
 		}()
-
 		return orDone
 	}
 	// test run 
