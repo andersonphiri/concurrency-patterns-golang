@@ -86,6 +86,7 @@ func (rcv *ResourceController) handleGetResource(w http.ResponseWriter, r *http.
 	w.Header().Set("Content-Type", "application/json")
 
 	serviceConnection := rcv.connPool.Get().(IResourceService) // could be any
+	defer rcv.connPool.Put(serviceConnection)
 	// then use the connection or resource
 	data, errFetch := serviceConnection.GetSerializedResource()
 	if errFetch != nil {
@@ -101,7 +102,7 @@ func (rcv *ResourceController) handleGetResource(w http.ResponseWriter, r *http.
 		}
 
 	}
-	rcv.connPool.Put(serviceConnection)
+	
 }
 
 func RunWarmCacheExample(host, port string, cacheSize int) {
