@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"fmt"
+	"runtime"
 
 	"github.com/andersonphiri/concurrency-patterns-golang/fanoutfanin"
 	"github.com/spf13/cobra"
@@ -23,7 +24,9 @@ var concurrentcomputeCmd = &cobra.Command{
 		if start == end || start == 0 {
 			return fmt.Errorf("please use reasonable inputs. see default values")
 		}
+		fmt.Printf("Number of logical CPUs: %v\n", runtime.NumCPU())
 		fanoutfanin.RunConcurrentComputesPrimeNumbers(start, end, parallelFactor)
+		fmt.Printf("Number of existing MPG goroutines: %v\n", runtime.NumGoroutine())
 		return nil
 	},
 }

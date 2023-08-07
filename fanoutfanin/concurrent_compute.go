@@ -12,24 +12,28 @@ type ComputeFunc[TIn any, TOut any] func(done <-chan interface{},
 // ConcurrentComputes fans out workers and then merge their result into a single stream
 func ConcurrentComputes[TIn any, TOut any](done <-chan interface{}, inputs <-chan TIn,
 	parallelCount int, computer ComputeFunc[TIn, TOut]) <-chan TOut {
-	workers := make(chan (<-chan TOut))
-	var wg sync.WaitGroup
-	wg.Add(parallelCount)
-	doWork := func(aggregate chan (<-chan TOut)) {
-		select {
-		case <-done:
-			return
-		case aggregate <- computer(done, inputs):
-		}
-	}
+	workers := make([]<-chan TOut, 0, parallelCount)
 	for i := 0; i < parallelCount; i++ {
-		go doWork(workers)
+
+		workers = append(workers, computer(done, inputs)) // this may require optimisation if compute is a long running operation
 	}
-	go func() {
-		wg.Wait()
-		close(workers)
-	}()
-	return fanInStream[TOut](done, workers)
+	// see also generators
+	toStreamFunc := func(done <-chan interface{},channels []<-chan TOut) chan (<-chan TOut) {
+		resTream := make(chan (<-chan TOut))
+		go func ()  {
+			defer close(resTream)
+			for _, chanel := range channels {
+				select {
+				case <- done:
+					return
+				case resTream <- chanel:
+				}
+			}
+
+		}()
+		return resTream
+	}
+	return FanInStream[TOut](done, toStreamFunc(done, workers)) // this is not necessary, just use slices
 
 }
 
@@ -59,25 +63,53 @@ func FanIn[T any](done <-chan interface{}, channels ...<-chan T) <-chan T {
 	return muxedStream
 }
 
-func fanInStream[T any](done <-chan interface{}, channels chan (<-chan T)) <-chan T {
-	//var wg sync.WaitGroup
+// FanInStream merges a channel of channels into a single channel
+// see also the Bridge channel under the forselect package
+func FanInStream[T any](done <-chan interface{}, channels chan (<-chan T)) <-chan T {
 	muxedStream := make(chan T)
-	
-	// wait for all reads to complete
-	go func() {
-		defer close(muxedStream)
-		muxer := func(channel <-chan T) {
-			for item := range channel {
+	orDone := func(done <-chan interface{}, inputsStream  <-chan T)  <-chan T {
+		result := make(chan T)
+		go func() {
+			defer close(result)
+			for {
 				select {
-				case <-done:
+				case <- done:
 					return
-				case muxedStream <- item:
+				case pull, ok := <- inputsStream:
+					if !ok {
+						return
+					}
+					select {
+					case <-done:
+						return
+					case result <- pull:
+					}
+
 				}
 			}
-		}
-		// wg.Add(len(channels))
-		for channel := range channels {
-			go muxer(channel)
+		}()
+		return result
+	}
+	go func() {
+		defer close(muxedStream)
+		for {
+			var tempStream <-chan T 
+			select {
+			case <-done:
+				return
+			case maybeStream,ok := <- channels:
+				if !ok {
+					return 
+				}
+				tempStream = maybeStream
+				for val := range orDone(done,tempStream){
+					select {
+					case <-done:
+					case muxedStream <- val:
+
+					}
+				}
+			}
 		}
 	}()
 	return muxedStream
@@ -160,7 +192,7 @@ func RunConcurrentComputesPrimeNumbers(start, end, parallesimFactor uint64) {
 	inputStream := generateRandomStream(done, int(start), int(end))
 	startTime := time.Now()
 	fmt.Println("beginning computations... Please wait")
-	computations := ConcurrentComputesUsingSliceWorkers [int, IsPrimeResult](done, //ConcurrentComputes
+	computations := ConcurrentComputesUsingSliceWorkers [int, IsPrimeResult](done, //ConcurrentComputes   ConcurrentComputesUsingSliceWorkers
 		inputStream,
 		int(parallesimFactor), computePrime)
 	fmt.Println("... Please wait")
